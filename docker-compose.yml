@@ -1,0 +1,100 @@
+# Single-VPS deployment: Next.js standalone app + PostgreSQL 16.
+#
+#   cp .env.example .env   # then edit it — do NOT commit .env
+#   docker compose up -d --build
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# Every value below is read from the environment so no credential is ever
+# committed. The `:?`/`:-` forms document intent:
+#
+#   ${VAR:?message}  -> hard fail if unset (production secrets)
+#   ${VAR:-default}  -> sane local-dev fallback
+#
+# Development defaults are intentionally weak and are for throwaway local
+# stacks ONLY. For a real deployment set real values in `.env`:
+#
+#   POSTGRES_USER=erp            # DB role
+#   POSTGRES_PASSWORD=...        # use a 32+ char random string
+#   POSTGRES_DB=erp
+#   SESSION_SECRET=...           # 32+ char random string (session JWT signing)
+#   CRON_SECRET=...              # 24+ char random string, guards /api/cron/*
+#   APP_BASE_URL=https://...     # must be https:// in production
+#   INITIAL_ADMIN_EMAIL=...      # first OWNER account, created by bootstrap
+#   INITIAL_ADMIN_PASSWORD=...   # 12+ chars, forced to change at first login
+#   OPENAI_API_KEY=...           # optional; leave empty for rule-based mode
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-erp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-only-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-erp}
+      # Deterministic collation; avoids locale surprises on the host.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `depends_on: condition: service_healthy` below is what makes this the
+      # real readiness gate for migrations — not just "the container is up".
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp} -d ${POSTGRES_DB:-erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Postgres is not published to the host; only the app can reach it over the
+    # compose network. Uncomment for psql access during incidents.
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    networks:
+      - erp
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      # Application-level config (DATABASE_URL is set explicitly below so it can
+      # never drift from the db service's credentials).
+      - .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Built from the same vars as the db service -> always consistent.
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-erp}:${POSTGRES_PASSWORD:-dev-only-change-me}@db:5432/${POSTGRES_DB:-erp}?schema=public&connection_limit=10&pool_timeout=20"
+      # The Postgres schema is a generated copy of prisma/schema.prisma; see
+      # scripts/make-pg-schema.mjs and scripts/docker-entrypoint.sh.
+      # Readiness probe path — implemented in src/app/api/health/route.ts and
+      # deliberately checks database reachability, not just process liveness.
+      HEALTHCHECK_PATH: ${HEALTHCHECK_PATH:-/api/health}
+    healthcheck:
+      # No curl/wget dependency: Node 22 ships a global fetch.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000'+(process.env.HEALTHCHECK_PATH||'/api/health')).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - erp
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  erp:
+    driver: bridge

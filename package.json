@@ -1,0 +1,50 @@
+{
+  "name": "doner-erp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:bootstrap": "tsx prisma/bootstrap.ts",
+    "db:pg:schema": "node scripts/make-pg-schema.mjs",
+    "db:pg:generate": "node scripts/make-pg-schema.mjs && prisma generate --schema prisma/postgres/schema.prisma",
+    "db:pg:migrate": "node scripts/make-pg-schema.mjs && prisma migrate deploy --schema prisma/postgres/schema.prisma",
+    "db:pg:studio": "node scripts/make-pg-schema.mjs && prisma studio --schema prisma/postgres/schema.prisma",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.12",
+    "next": "16.3.5",
+    "openai": "^7.15.0",
+    "prisma": "^6.19.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "tsx": "^4.23.13",
+    "zod": "^4.6.3"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.19.3",
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.20.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^5.0.0"
+  }
+}
