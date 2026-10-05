@@ -23,7 +23,10 @@ ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1 \
 COPY package.json package-lock.json ./
 
 # `npm ci` (not install) so the image always matches package-lock.json exactly.
-RUN --mount=type=cache,target=/root/.npm \
+# `id=` namespaces each cache mount to this project. Without it the mounts are
+# keyed by target path and can be shared with, or corrupted by, unrelated builds
+# on a shared host — which surfaces as npm EEXIST errors during `npm ci`.
+RUN --mount=type=cache,id=donererp-npm,target=/root/.npm \
     npm ci
 
 # ─── Stage 2: build ──────────────────────────────────────────────────────────
@@ -69,7 +72,7 @@ RUN groupadd --system --gid 1001 nodejs \
 # server's own traced node_modules simply wins on conflicts.
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=donererp-npm-prod,target=/root/.npm \
     npm ci --omit=dev && npm cache clean --force
 
 # Only the artifacts the server actually needs.
