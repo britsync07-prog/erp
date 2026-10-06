@@ -52,10 +52,24 @@ function check() {
   }
 
   const base = process.env.APP_BASE_URL;
+  const allowInsecure = process.env.ALLOW_INSECURE_BASE_URL === "true";
   if (!base) {
     problems.push("APP_BASE_URL is not set.");
   } else if (process.env.NODE_ENV === "production" && !base.startsWith("https://")) {
-    problems.push("APP_BASE_URL must use https:// in production.");
+    if (allowInsecure) {
+      // Deliberate, loud, and named so it can never be enabled by accident.
+      // Only acceptable for a throwaway smoke test: sign-in credentials are
+      // transmitted in clear text. Never set this on a real deployment.
+      console.warn(
+        "[env] ALLOW_INSECURE_BASE_URL=true — APP_BASE_URL is not https. " +
+          "Passwords and session cookies are being sent unencrypted. " +
+          "Terminate TLS in front of this app and unset this variable.",
+      );
+    } else {
+      problems.push(
+        "APP_BASE_URL must use https:// in production. Set ALLOW_INSECURE_BASE_URL=true only for a temporary smoke test.",
+      );
+    }
   }
 
   const isProd = process.env.NODE_ENV === "production";

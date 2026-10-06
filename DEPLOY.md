@@ -68,6 +68,14 @@ curl -fsS https://your-domain.tld/api/health
 # {"status":"ok","database":"reachable","latencyMs":3}
 ```
 
+### Smoke testing without TLS
+
+If you only want to check the app works before wiring up a domain, set
+`ALLOW_INSECURE_BASE_URL=true` in `.env` and use `http://<host>:<APP_PORT>`.
+The app logs a warning on every boot. **This sends sign-in passwords and
+session cookies in clear text** — use it for minutes, not minutes-to-launch,
+then set up TLS (§4) and remove the variable.
+
 ---
 
 ## 3. Create the first (OWNER) account
