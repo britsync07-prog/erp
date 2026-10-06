@@ -72,6 +72,13 @@ RUN groupadd --system --gid 1001 nodejs \
 # server's own traced node_modules simply wins on conflicts.
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
+
+# prisma/bootstrap.ts is executed inside the running container
+# (`docker compose exec app npx tsx prisma/bootstrap.ts`), so it needs the
+# two self-contained domain modules it imports. Without these the documented
+# first-deploy command fails with MODULE_NOT_FOUND.
+COPY src/domain ./src/domain
+
 RUN --mount=type=cache,id=donererp-npm-prod,target=/root/.npm \
     npm ci --omit=dev && npm cache clean --force
 
