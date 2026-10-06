@@ -1,33 +1,38 @@
 import type { NextConfig } from "next";
 
 /**
- * Content Security Policy.
+ * Content-Security-Policy.
  *
- * Next.js emits inline bootstrap scripts for hydration and streaming, so the
- * policy uses nonces plus `'strict-dynamic'` for scripts rather than
- * `unsafe-inline`. Style attributes are still permitted because React sets
- * inline styles for progress/width values.
+ * On script-src: a nonce-based policy (`'nonce-…' 'strict-dynamic'`) was tried
+ * and does NOT work with this Next.js version — it emits script tags with no
+ * `nonce` attribute, and `'strict-dynamic'` makes browsers ignore `'self'`, so
+ * every script is blocked and the app renders as a blank, dead shell.
+ * `'unsafe-inline'` is therefore used so the app actually runs. Every other
+ * directive is kept strict, which is where most of the value is anyway.
+ * Upgrade path: move to nonces once Next stamps them on the emitted tags.
  */
-const csp = [
-  "default-src 'self'",
-  // 'unsafe-eval' is required by React in development only.
-  process.env.NODE_ENV === "development"
-    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-    : "script-src 'self' 'nonce-{nonce}' 'strict-dynamic'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  // Connect only to self plus the configured AI gateway.
-  `connect-src 'self'${process.env.OPENAI_BASE_URL ? ` ${new URL(process.env.OPENAI_BASE_URL).origin}` : ""}`,
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
+function contentSecurityPolicy(): string {
+  const aiOrigin = process.env.OPENAI_BASE_URL
+    ? ` ${new URL(process.env.OPENAI_BASE_URL).origin}`
+    : "";
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    // React sets inline styles for things like progress-bar widths.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    `connect-src 'self'${aiOrigin}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy() },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -37,7 +42,6 @@ const securityHeaders = [
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   // Only meaningful over TLS; harmless over plain HTTP in local dev.
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  // The app serves its own fonts/assets; never let a browser sniff a response.
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 

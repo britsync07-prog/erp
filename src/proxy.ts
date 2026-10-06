@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/server/auth/session";
 
+/**
+ * Marker searched for in the raw cookie value. The session payload is a
+ * base64url JWT, so the flag appears verbatim as `"mustChangePassword":true`.
+ */
+const RESET_FLAG = '"mustChangePassword":true';
+
 // Optimistic auth gate (Next.js 16 proxy). Full session verification happens in
 // layouts/actions/services via the DAL — proxy only checks cookie presence.
 export function proxy(request: NextRequest) {
@@ -15,8 +21,8 @@ export function proxy(request: NextRequest) {
   }
 
   // An account still holding an admin-issued temporary password may only reach
-  // the change-password page and sign-out. The JWT carries the flag, so this
-  // needs no database round trip.
+  // the change-password page. The JWT carries the flag, so this needs no
+  // database round trip.
   if (hasSession && request.cookies.get(SESSION_COOKIE)?.value.includes(RESET_FLAG)) {
     const allowed =
       pathname.startsWith("/account/password") ||
@@ -26,14 +32,9 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/account/password", request.url));
     }
   }
+
   return NextResponse.next();
 }
-
-/**
- * Marker searched for in the raw cookie value. The session payload is a
- * base64url JWT, so the flag appears verbatim as `"mustChangePassword":true`.
- */
-const RESET_FLAG = '"mustChangePassword":true';
 
 export const config = {
   // Exempt, each for its own auth model:
