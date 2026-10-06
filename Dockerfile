@@ -33,6 +33,15 @@ RUN --mount=type=cache,id=donererp-npm,target=/root/.npm \
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
+# Prisma picks its query engine at `prisma generate` time based on the OpenSSL
+# present in THIS stage, and the runner needs a matching one. openssl must
+# therefore be installed in both, otherwise the client is generated for
+# debian-openssl-1.1.x while the runtime demands debian-openssl-3.0.x and every
+# query fails with PrismaClientInitializationError.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1 \
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production

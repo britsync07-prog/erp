@@ -13,6 +13,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Generate an engine for every environment this app is built for, not just
+  // the build host. Without an explicit target Prisma infers one from the
+  // builder image, and the client then fails at runtime when the runtime
+  // expects a different OpenSSL (e.g. debian-openssl-3.0.x vs 1.1.x).
+  binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
 }
 
 datasource db {
